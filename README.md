@@ -26,14 +26,20 @@ served at `http://127.0.0.1:7477` and displayed in a dedicated Chrome panel
 
 ## Install
 
-Add this marketplace and install the plugin:
+Add this marketplace and install the plugin. On **any machine** (this is the
+portable path — nothing is tied to a specific home directory):
 
 ```bash
-claude plugin marketplace add ~/Developer/628Productions/claude/628-Marketplace
+claude plugin marketplace add kingbin/628-Marketplace   # from GitHub
 claude plugin install cmc@628-Marketplace
 ```
 
-(Or `claude plugin marketplace add kingbin/628-Marketplace` once pushed to GitHub.)
+Or, if you have the repo cloned locally and want to develop against it:
+
+```bash
+claude plugin marketplace add /path/to/628-Marketplace   # local directory source
+claude plugin install cmc@628-Marketplace
+```
 
 ## First-run setup
 
@@ -53,7 +59,7 @@ idempotent — safe to re-run any time (e.g. after Chrome moves).
 |---------------|---------------------------------------------------------------------|
 | `/cmc`        | Open or focus the CMC dashboard panel.                              |
 | `/cmc-setup`  | One-time setup: verify deps, build `CMC.app`, seed config.          |
-| `/cmc-deploy` | Sync this repo's source into the live install and restart the server. |
+| `/cmc-deploy` | Sync the source into the live install and restart the server (path-agnostic). |
 
 ## Configuration
 
@@ -77,22 +83,27 @@ The canonical source lives here in `plugins/cmc/`. This repo is also the
 registered marketplace source, so the source and the registration are the same
 directory — there is no separate backing copy to keep in sync.
 
-After editing source, push it into the live install with:
+After editing source, push it into the live install with either:
 
 ```bash
-~/bin/cmc-deploy            # sync repo → live cache, restart server, verify
-~/bin/cmc-deploy --dry-run  # preview the rsync changes only
+/cmc-deploy        # slash command — works anywhere CMC is installed
+cmc-deploy         # terminal wrapper installed by /cmc-setup (--dry-run to preview)
 ```
 
-(`/cmc-deploy` runs the same script.)
+Both run `plugins/cmc/scripts/cmc-deploy.sh`, which is **path-agnostic**: it
+resolves the source repo from Claude Code's `known_marketplaces.json` (wherever
+you cloned it), reads the version from `plugin.json`, and derives the live cache
+under `$HOME`. No hardcoded user or version — carry it between machines unchanged.
+If there's no editable source (a GitHub-only install), it just restarts the
+cached copy in place.
 
 **Why a deploy script is needed** — the `SessionStart` hook only starts the
 server if one isn't already running, so reloading the plugin does *not* pick up
 new code while a server is alive. Worse, a stale/orphaned `cmc-server.py` can
 keep holding port `7477`: the freshly launched copy fails to bind, dies, but the
 health check still passes because the orphan answers — so old code keeps serving
-silently. `cmc-deploy` kills whatever holds `:7477` (via `lsof`) plus any stray
-`cmc-server.py` (via `pgrep`) before starting the cache copy fresh.
+silently. The deploy script kills whatever holds `:7477` (via `lsof`) plus any
+stray `cmc-server.py` (via `pgrep`) before starting the cache copy fresh.
 
 Verify the live server is current:
 
@@ -100,9 +111,17 @@ Verify the live server is current:
 curl -s http://127.0.0.1:7477/api/sessions   # should contain "focused": true for the active pane
 ```
 
-### Known caveat
+## Portability
 
-The `/cmc` and `/cmc-setup` commands include a fallback path that pins the
-plugin version (`.../628-Marketplace/cmc/0.1.0/...`), used only if
-`$CLAUDE_PLUGIN_ROOT` is unset. In normal use `$CLAUDE_PLUGIN_ROOT` is set, but
-bump that literal if the plugin version changes.
+Everything resolves dynamically — there are no machine-specific paths baked into
+the plugin:
+
+- Commands resolve their script via `$CLAUDE_PLUGIN_ROOT`, falling back to a glob
+  of the latest installed version (no pinned version number).
+- The deploy script resolves source/cache from `known_marketplaces.json` + `$HOME`.
+- `/cmc-setup` (re)builds `~/Applications/CMC.app` and installs the `~/bin/cmc-deploy`
+  terminal wrapper, so a fresh machine is one `/cmc-setup` away from fully set up.
+
+To set up on a new machine: install via the GitHub marketplace (above), run
+`/cmc-setup`, then `/cmc`. macOS + Google Chrome are the only external
+requirements; the server itself is pure Python standard library.

@@ -144,5 +144,32 @@ else
     warn "no template at $CONFIG_TEMPLATE; skipping config seed (defaults apply)"
 fi
 
+# ── 4. Install the ~/bin/cmc-deploy terminal wrapper ──────────────────────────
+# A thin, path-agnostic shim so `cmc-deploy` works from the shell on any machine.
+# It locates the installed plugin's deploy script dynamically — no hardcoded user
+# or version — and is safe to regenerate every run.
+echo
+say "Terminal helper (~/bin/cmc-deploy)"
+BIN_DIR="$HOME/bin"
+mkdir -p "$BIN_DIR"
+cat > "${BIN_DIR}/cmc-deploy" <<'WRAP'
+#!/usr/bin/env bash
+# CMC deploy — path-agnostic wrapper (managed by /cmc-setup). Locates the
+# installed cmc plugin's deploy script dynamically and forwards all args.
+set -euo pipefail
+SCRIPT=$(ls -d "$HOME"/.claude/plugins/cache/628-Marketplace/cmc/*/scripts/cmc-deploy.sh 2>/dev/null | sort -V | tail -1)
+[[ -n "${SCRIPT:-}" && -f "$SCRIPT" ]] || {
+    echo "cmc not installed — run: claude plugin install cmc@628-Marketplace" >&2
+    exit 1
+}
+exec bash "$SCRIPT" "$@"
+WRAP
+chmod +x "${BIN_DIR}/cmc-deploy"
+ok "installed ${BIN_DIR}/cmc-deploy"
+case ":$PATH:" in
+    *":$BIN_DIR:"*) : ;;
+    *) warn "$BIN_DIR is not on your PATH — add it, or just use /cmc-deploy" ;;
+esac
+
 echo
 echo -e "${GREEN}CMC setup complete.${NC} Run /cmc to open the dashboard panel."

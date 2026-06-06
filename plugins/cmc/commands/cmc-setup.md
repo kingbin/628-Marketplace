@@ -9,7 +9,7 @@ Chrome, curl, lsof, pgrep, osascript), builds `~/Applications/CMC.app`, and seed
 Run this command now using the Bash tool — no confirmation needed:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/cache/628-Marketplace/cmc/0.1.0}/hooks/scripts/cmc-setup.sh"
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/628-Marketplace/cmc/*/ 2>/dev/null | sort -V | tail -1)}"; bash "${ROOT%/}/hooks/scripts/cmc-setup.sh"
 ```
 
 Report the setup result to the user. If any required dependency is missing,
