@@ -1,0 +1,7 @@
+# Local, machine-specific Claude Code settings (may contain absolute paths)
+.claude/settings.local.json
+
+# Python / macOS cruft
+__pycache__/
+*.pyc
+.DS_Store

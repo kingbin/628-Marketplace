@@ -1,0 +1,17 @@
+{
+  "name": "628-Marketplace",
+  "description": "628 Productions personal Claude Code plugin marketplace",
+  "version": "0.1.0",
+  "owner": {
+    "name": "Chris Blazek",
+    "url": "https://github.com/kingbin/628-Marketplace"
+  },
+  "plugins": [
+    {
+      "name": "cmc",
+      "source": "./plugins/cmc",
+      "description": "Claude Management Console — real-time dashboard for monitoring all active Claude Code sessions",
+      "category": "productivity"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "browser": "chrome",
+  "panel_width": 350,
+  "safe_auto_accept": false
+}

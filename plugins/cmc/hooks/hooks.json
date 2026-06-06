@@ -1,0 +1,29 @@
+{
+  "description": "CMC plugin hooks — real-time session monitoring + safe auto-accept",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PLUGIN_ROOT/hooks/scripts/startup.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|mcp__mysql__mysql_select_data|mcp__mysql__mysql_list_tables|mcp__mysql__mysql_describe_table",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PLUGIN_ROOT/hooks/scripts/safe-auto-accept.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
