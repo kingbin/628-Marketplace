@@ -1,3 +1,7 @@
+---
+description: Open or reopen the CMC (Claude Management Console) dashboard Chrome panel
+---
+
 Open or reopen the CMC (Claude Management Console) dashboard Chrome panel.
 
 Run this command now using the Bash tool — no confirmation needed:
