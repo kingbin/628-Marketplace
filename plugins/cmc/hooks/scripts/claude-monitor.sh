@@ -385,7 +385,6 @@ while true; do
                 fi
                 nav_idx=$((key - 1))
                 if [ "${#nav_rows[@]}" -gt 0 ] && [ "$nav_idx" -lt "${#nav_rows[@]}" ]; then
-                    local fsid fproc fcwd fpid faction fpane
                     IFS=$'\t' read -r fsid fproc fcwd fpid faction fpane <<< "${nav_rows[$nav_idx]}"
                     focus_session "$fsid" "${fpane:-}"
                 fi

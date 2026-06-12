@@ -46,7 +46,8 @@ def load_config():
 # ── Safety classifiers ────────────────────────────────────────────────────────
 
 _MYSQL_WRITE = re.compile(
-    r'\b(INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER|CREATE|REPLACE|GRANT|REVOKE)\b',
+    r'\b(INSERT|UPDATE|DELETE|DROP|TRUNCATE|ALTER|CREATE|REPLACE|GRANT|REVOKE'
+    r'|CALL|LOAD|RENAME|LOCK|SET)\b',
     re.IGNORECASE,
 )
 
@@ -62,9 +63,15 @@ _GH_SAFE_SUB = {
 # gh api flags that turn a read into a write (method override / body / fields).
 _GH_API_MUTATING = {"-X", "--method", "-f", "-F", "--field", "--raw-field", "--input"}
 
-_GIT_SAFE_SUB = {"pull", "fetch", "log", "status", "diff", "show", "branch", "tag"}
+_GIT_SAFE_SUB = {"pull", "fetch", "log", "status", "diff", "show"}
 # git flags that can execute arbitrary commands via the transport/exec machinery.
 _GIT_EXEC_FLAGS = ("--upload-pack", "--receive-pack", "--exec")
+# branch/tag flags that mutate refs or config even without a positional argument.
+_GIT_REF_MUTATING = {
+    "-d", "-D", "--delete", "-m", "-M", "--move", "-c", "-C", "--copy",
+    "-f", "--force", "-u", "--set-upstream-to", "--unset-upstream",
+    "--edit-description",
+}
 
 
 def _flag_key(tok: str) -> str:
@@ -99,6 +106,14 @@ def _is_safe_git(argv) -> bool:
         return bool(rest) and rest[0] == "list"
     if sub == "remote":
         return bool(rest) and rest[0] == "show"
+    if sub in ("branch", "tag"):
+        # Listing only. Any positional argument can create/delete/rename a ref
+        # (`git branch -D x`, `git tag v1`), and some flags mutate even without
+        # one (`--set-upstream-to=…`), so allow non-mutating flags-only forms.
+        return all(
+            tok.startswith("-") and _flag_key(tok) not in _GIT_REF_MUTATING
+            for tok in rest
+        )
     if sub in _GIT_SAFE_SUB:
         return not any(_flag_key(tok) in _GIT_EXEC_FLAGS for tok in rest)
     return False

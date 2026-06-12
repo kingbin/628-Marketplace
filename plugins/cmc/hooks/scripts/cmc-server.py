@@ -23,6 +23,11 @@ CONFIG_FILE  = os.path.expanduser("~/.claude/cmc.json")
 # and the custom header forces a CORS preflight that fails cross-origin.
 CMC_TOKEN = secrets.token_urlsafe(32)
 _ALLOWED_ORIGINS = {f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}"}
+# Host-header allowlist: a DNS-rebinding page (evil.com → 127.0.0.1) reaches the
+# socket with Host: evil.com — reject it before serving the token or session data.
+_ALLOWED_HOSTS = {
+    f"127.0.0.1:{PORT}", f"localhost:{PORT}", "127.0.0.1", "localhost",
+}
 # Endpoints that launch a desktop app on a directory argument — cwd must be a real
 # absolute path so it can never be interpreted as a CLI flag (argument injection).
 _DIR_LAUNCH_PATHS = ("/api/action/fork", "/api/action/code", "/api/action/phpstorm")
@@ -716,7 +721,9 @@ function toggleSaa(e) {
 
 function dur(ts) {
   if (!ts) return "";
-  var s = Math.floor(Date.now() / 1000 - ts);
+  /* startedAt is milliseconds since epoch */
+  var s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 0) return "";
   if (s < 60)   return s + "s";
   if (s < 3600) return Math.floor(s / 60) + "m";
   return Math.floor(s / 3600) + "h " + Math.floor((s % 3600) / 60) + "m";
@@ -949,7 +956,14 @@ setInterval(refresh, 3000);
 # ── HTTP handler ──────────────────────────────────────────────────────────────
 
 class Handler(BaseHTTPRequestHandler):
+    def _host_ok(self):
+        return self.headers.get("Host", "") in _ALLOWED_HOSTS
+
     def do_GET(self):
+        if not self._host_ok():
+            self.send_response(403)
+            self.end_headers()
+            return
         parsed = urlparse(self.path)
         if parsed.path in ("/", "/index.html"):
             body = HTML.encode()
@@ -1000,6 +1014,8 @@ class Handler(BaseHTTPRequestHandler):
     def _csrf_ok(self):
         """Reject state-changing requests lacking the per-process token or coming
         from a foreign origin."""
+        if not self._host_ok():
+            return False
         token = self.headers.get("X-CMC-Token", "")
         if not secrets.compare_digest(token, CMC_TOKEN):
             return False

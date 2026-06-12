@@ -48,68 +48,12 @@ CLOSE_EOF
     exit 0
 fi
 
-# ── First-run setup: create config if missing ────────────────────────────────
+# ── First-run: seed config from the template (silent — /cmc-setup is the
+# interactive path; a SessionStart hook must never block on dialogs) ─────────
 if [ ! -f "$CONFIG_FILE" ]; then
-    python3 - "${CONFIG_FILE}" << 'SETUP_EOF'
-import json, os, subprocess, sys
-
-config_path = sys.argv[1]
-
-def ask(script, fallback=""):
-    r = subprocess.run(["osascript", "-e", script],
-                       capture_output=True, text=True, timeout=30)
-    return r.stdout.strip() if r.returncode == 0 else fallback
-
-# ── Enable/disable ───────────────────────────────────────────────────────────
-enabled_raw = ask('''
-set sel to button returned of (display dialog "Enable CMC dashboard?" \u00ac
-    with title "CMC \u2014 First Run Setup" \u00ac
-    buttons {"Disable", "Enable"} default button "Enable")
-return sel
-''', fallback="Enable")
-enabled = enabled_raw.strip() != "Disable"
-
-# ── Browser choice ────────────────────────────────────────────────────────────
-browser_raw = ask('''
-set choices to {"Chrome (frameless app window)", "Default system browser"}
-set sel to choose from list choices ¬
-    with title "CMC \u2014 First Run Setup" ¬
-    with prompt "Choose browser for the dashboard panel:" ¬
-    default items {"Chrome (frameless app window)"} ¬
-    without multiple selections allowed and empty selection allowed
-if sel is false then return "chrome"
-return item 1 of sel
-''', fallback="Chrome (frameless app window)")
-
-browser = "default" if "default" in browser_raw.lower() else "chrome"
-
-# ── Panel width ───────────────────────────────────────────────────────────────
-width_raw = ask('''
-set d to display dialog "Dashboard panel width in pixels:" ¬
-    with title "CMC \u2014 First Run Setup" ¬
-    default answer "350" ¬
-    buttons {"Cancel", "OK"} default button "OK"
-return text returned of d
-''', fallback="350")
-
-try:
-    panel_width = max(200, min(1200, int(width_raw)))
-except (ValueError, TypeError):
-    panel_width = 350
-
-# ── Write config ──────────────────────────────────────────────────────────────
-config = {"enabled": enabled, "browser": browser, "panel_width": panel_width}
-os.makedirs(os.path.dirname(config_path), exist_ok=True)
-with open(config_path, "w") as f:
-    json.dump(config, f, indent=2)
-    f.write("\n")
-
-ask(f'''
-display notification "Config saved to {config_path}" ¬
-    with title "CMC" ¬
-    subtitle "browser: {browser}  \u00b7  width: {panel_width}px"
-''')
-SETUP_EOF
+    CONFIG_TEMPLATE="${CLAUDE_PLUGIN_ROOT}/hooks/scripts/cmc-config.template.json"
+    mkdir -p "$(dirname "$CONFIG_FILE")"
+    [ -f "$CONFIG_TEMPLATE" ] && cp "$CONFIG_TEMPLATE" "$CONFIG_FILE"
 fi
 
 # ── Start server if not already running ──────────────────────────────────────
@@ -226,7 +170,9 @@ def launch_chromium(binary, app_name):
 # ── "chrome" mode: launch CMC.app so it lives in its own space ───────────────
 if browser == "chrome":
     if not os.path.exists(CMC_APP):
-        sys.exit(1)
+        # Not built yet — /cmc-setup creates it. Don't fail the SessionStart hook.
+        print(f"CMC.app not found at {CMC_APP}; run /cmc-setup to build it.")
+        sys.exit(0)
     launch_cmc_app()
     sys.exit(0)
 
